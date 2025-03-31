@@ -31,8 +31,8 @@ async def handler(method: str = "GET", data: dict = None):
         }
 
     try:
-        # Use edge-tts with Hindi voice (Neerja or default Hindi)
-        voice = "hi-IN-NeerjaNeural"  # Neerja voice, Azure-based
+        # Use edge-tts with Hindi voice (Neerja)
+        voice = "hi-IN-NeerjaNeural"
         communicate = edge_tts.Communicate(text, voice)
         
         # Save audio to file asynchronously
