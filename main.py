@@ -1,5 +1,6 @@
 import edge_tts
 import os
+import asyncio
 from pathlib import Path
 from fastapi.responses import FileResponse
 
@@ -35,19 +36,28 @@ async def handler(method: str = "GET", data: dict = None):
         voice = "hi-IN-NeerjaNeural"
         communicate = edge_tts.Communicate(text, voice)
         
-        # Save audio to file asynchronously
+        # Save audio to file asynchronously and ensure completion
+        print(f"Generating audio for text: {text}")
         await communicate.save(str(AUDIO_FILE))
+        
+        # Wait briefly to ensure file is fully written
+        await asyncio.sleep(0.1)  # Small delay to avoid race condition
+        
+        if not AUDIO_FILE.exists() or AUDIO_FILE.stat().st_size == 0:
+            raise Exception(f"Audio file not generated or empty: {AUDIO_FILE}")
 
-        if not AUDIO_FILE.exists():
-            raise Exception("Failed to generate audio file")
+        print(f"Audio file generated: {AUDIO_FILE}, size: {AUDIO_FILE.stat().st_size} bytes")
 
         # Return file as response
-        return FileResponse(
+        response = FileResponse(
             path=str(AUDIO_FILE),
             filename="output.mp3",
             media_type="audio/mpeg",
             headers={"Content-Disposition": "attachment; filename=output.mp3"}
         )
+
+        # Cleanup after response is prepared (not before)
+        return response
 
     except Exception as e:
         return {
@@ -57,6 +67,8 @@ async def handler(method: str = "GET", data: dict = None):
             "error": str(e)
         }
     finally:
-        # Cleanup
+        # Delay cleanup to ensure response is sent
+        await asyncio.sleep(0.5)  # Give time for response to be sent
         if AUDIO_FILE.exists():
+            print(f"Cleaning up: {AUDIO_FILE}")
             os.remove(AUDIO_FILE)
