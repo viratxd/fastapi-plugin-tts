@@ -3,11 +3,8 @@ import os
 import asyncio
 import uuid
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydub import AudioSegment
-
-app = FastAPI()
 
 # Define base directory
 BASE_DIR = Path(__file__).resolve().parent  # Gets the script's parent directory
@@ -22,12 +19,16 @@ async def generate_audio(text: str, voice: str, output_file: Path):
         raise Exception(f"Audio file not generated or empty: {output_file}")
     return output_file
 
-@app.post("/generate-audio")
-async def generate_tts(data: dict):
-    if "text" not in data:
-        raise HTTPException(status_code=400, detail="No text provided")
+async def handler(method: str = "POST", data: dict = None):
+    if not data or "text" not in data:
+        return {
+            "message": "No text provided",
+            "plugin": "edgetts",
+            "method": method,
+            "info": "Provide 'text' in POST data"
+        }
     
-    text = data["text"]
+    text = data.get("text")
     voice = "hi-IN-SwaraNeural"
     unique_id = uuid.uuid4().hex
     audio_file = OUTPUT_DIR / f"output_{unique_id}.mp3"
@@ -63,4 +64,11 @@ async def generate_tts(data: dict):
         )
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+        return {
+            "message": "TTS generation failed",
+            "plugin": "edgetts",
+            "method": method,
+            "error": str(e),
+            "base_dir": str(BASE_DIR),
+            "output_dir": str(OUTPUT_DIR)
+        }
