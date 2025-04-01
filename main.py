@@ -3,11 +3,8 @@ import os
 import asyncio
 import uuid
 from pathlib import Path
-from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from pydub import AudioSegment
-
-app = FastAPI()
 
 # Define base directory
 BASE_DIR = Path(__file__).resolve().parent  # Gets the script's parent directory
@@ -24,20 +21,21 @@ async def generate_audio(text: str, voice: str, output_file: Path):
     print(f"Generated: {output_file}, size: {output_file.stat().st_size} bytes")
     return output_file
 
-@app.post("/tts")
-async def handler(data: dict):
+async def handler(method: str = "POST", data: dict = None):
     """
     Edge TTS plugin: Converts text to speech using edge-tts with Hindi voice.
     Returns the generated audio file as a downloadable response.
+    Compatible with routeset.py calling convention.
     """
-    text = data.get("text")
-    if not text:
+    if not data or "text" not in data:
         return {
             "message": "No text provided",
             "plugin": "edgetts",
+            "method": method,
             "info": "Provide 'text' in POST data"
         }
 
+    text = data.get("text")
     try:
         voice = "hi-IN-SwaraNeural"
         unique_id = uuid.uuid4().hex
@@ -67,7 +65,7 @@ async def handler(data: dict):
         if not audio_file.exists() or audio_file.stat().st_size == 0:
             raise Exception(f"Final audio file not generated or empty: {audio_file}")
 
-        # Return the file as a downloadable response
+        # Return FileResponse for download
         response = FileResponse(
             path=str(audio_file),
             filename="output.mp3",
@@ -75,21 +73,29 @@ async def handler(data: dict):
             headers={"Content-Disposition": "attachment; filename=output.mp3"}
         )
 
-        # Cleanup after response is prepared but not immediately
-        # We let FastAPI handle the response first
-        return response
+        # Return a dict with response details and the FileResponse object
+        return {
+            "message": "TTS generation successful",
+            "plugin": "edgetts",
+            "method": method,
+            "base_dir": str(BASE_DIR),
+            "output_dir": str(OUTPUT_DIR),
+            "output_file": str(audio_file),
+            "file_size": audio_file.stat().st_size,
+            "response": response  # Embedding the FileResponse here
+        }
 
     except Exception as e:
         return {
             "message": "TTS generation failed",
             "plugin": "edgetts",
+            "method": method,
             "error": str(e),
             "base_dir": str(BASE_DIR),
             "output_dir": str(OUTPUT_DIR)
         }
 
-# Optional cleanup endpoint or background task can be added if needed
-@app.on_event("shutdown")
+# Optional cleanup can be handled elsewhere if needed
 def cleanup():
     for temp_file in OUTPUT_DIR.glob("*.mp3"):
         if temp_file.exists():
