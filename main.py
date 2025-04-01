@@ -36,7 +36,7 @@ async def handler(method: str = "POST", data: dict = None):
         }
 
     try:
-        voice = "hi-IN-NeerjaNeural"
+        voice = "hi-IN-SwaraNeural"
         unique_id = uuid.uuid4().hex
         audio_file = OUTPUT_DIR / f"output_{unique_id}.mp3"
         
